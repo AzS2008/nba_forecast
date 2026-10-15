@@ -24,20 +24,16 @@ STRENGTH_SD = 120     # preseason uncertainty about team strength, in rating poi
 #                       a real miss spread of 12.6, so it was nudged up to 120)
 N_SIMS = 10000        # number of imagined seasons
 
-# Used to work out playoff seeds. Written from memory: check it.
+# Used to work out playoff seed.
 EAST = ['ATL', 'BKN', 'BOS', 'CHA', 'CHI', 'CLE', 'DET', 'IND',
         'MIA', 'MIL', 'NYK', 'ORL', 'PHI', 'TOR', 'WAS']
 WEST = ['DAL', 'DEN', 'GSW', 'HOU', 'LAC', 'LAL', 'MEM', 'MIN',
         'NOP', 'OKC', 'PHX', 'POR', 'SAC', 'SAS', 'UTA']
 
-# If the 2026-27 schedule uses different team abbreviations from your game
-# data, put the translations here, e.g. {'XXX': 'YYY'}. Empty for now.
+
 TEAM_FIX = {}
 
 
-# ----------------------------------------------------------------------------
-# 2. FUNCTIONS
-# ----------------------------------------------------------------------------
 def pull_season_data(season):
     """One clean row per regular-season game, for a season like '2025-26'."""
     gamefinder = leaguegamefinder.LeagueGameFinder(
@@ -186,7 +182,7 @@ def simulate_season(schedule, start_ratings, home_bonus, n_sims=N_SIMS,
     H[np.arange(n_games), h] = 1
     A[np.arange(n_games), a] = 1
 
-    # your random-number idea, for every game at once: True = home team wins
+    # random-number idea, for every game at once: True = home team wins
     hw = (np.random.rand(n_sims, n_games) < p_home).astype(np.float32)
     wins = hw @ H + (1 - hw) @ A
 
@@ -211,17 +207,14 @@ def seed_odds(sims, conference):
     })
 
 
-# ----------------------------------------------------------------------------
-# 3. RUN SECTION (only runs when you run this file directly)
-# ----------------------------------------------------------------------------
 if __name__ == '__main__':
 
-    # ---- A. data: last 3 completed seasons ----------------------------------
+    # A. data: last 3 completed seasons 
     pull_df = get_past_seasons(3)
     pull_df.to_csv('games_last3.csv', index=False)   # saved copy of the data
     print('games:', pull_df.shape, pull_df['Date'].min(), pull_df['Date'].max())
 
-    # ---- B. tune on 2023-24 and 2024-25 only --------------------------------
+    # B. tune on 2023-24 and 2024-25 only 
     season_code = pull_df['Game ID'].str[3:5]
     train_pull = pull_df[season_code.isin(['23', '24'])]
     bonus_train = home_bonus_from(train_pull)          # home bonus from tuning seasons only
@@ -235,7 +228,7 @@ if __name__ == '__main__':
     for row in sorted(rows, key=lambda r: r[2]):
         print(row)
 
-    # ---- C. held-out test on 2025-26 ----------------------------------------
+    #  C. held-out test on 2025-26 
     _, tuned = run_elo(pull_df, K, bonus_train, CARRY)
     _, default = run_elo(pull_df, 20, bonus_train, 0.75)
     home_rate_train = (train_pull['Home Team Points'] > train_pull['Away Team Points']).mean()
@@ -247,7 +240,7 @@ if __name__ == '__main__':
           round(((home_rate_train - test_tuned['Home_won'].astype(int)) ** 2).mean(), 4))
     scorecard(tuned)
 
-    # ---- D. backtest the simulation on 2025-26 ------------------------------
+    #  D. backtest the simulation on 2025-26 
     sched25 = pull_df[season_code == '25']
     early = pull_df[season_code.isin(['23', '24'])]
     r_end, _ = run_elo(early, K, bonus_train, CARRY)
@@ -266,7 +259,7 @@ if __name__ == '__main__':
         print(sd, round(miss, 1), round(sims.std().mean(), 1), round(inside, 2))
     print('know-nothing baseline miss:', round((actual - actual.mean()).abs().mean(), 1))
 
-    # ---- E. fetch and check the 2026-27 schedule ----------------------------
+    #  E. fetch and check the 2026-27 schedule 
     sched_raw = scheduleleaguev2.ScheduleLeagueV2(season='2026-27')
     sched_df = sched_raw.get_data_frames()[0]
 
@@ -295,7 +288,7 @@ if __name__ == '__main__':
     print('games still to be scheduled per team:', sorted(set(extra_games.values())))
     print('total unscheduled team-games:', sum(extra_games.values()), '(= 2 per team if all 30 teams show 2)')
 
-    # ---- F. final ratings for the live forecast (all 3 seasons) -------------
+    #  F. final ratings for the live forecast (all 3 seasons) 
     bonus_all = home_bonus_from(pull_df)
     ratings_end, _ = run_elo(pull_df, K, bonus_all, CARRY)
     print('sum of ratings (should be 45000):', round(sum(ratings_end.values()), 1))
@@ -308,7 +301,7 @@ if __name__ == '__main__':
     mismatch = schedule_teams ^ set(ratings_end)
     print('team abbreviations that do not match between schedule and ratings:', mismatch)
 
-    # ---- G. the 2026-27 forecast (only if the team names line up) -----------
+    #  G. the 2026-27 forecast
     if mismatch:
         print('FORECAST SKIPPED: fix the team abbreviations first (see TEAM_FIX).')
     else:
